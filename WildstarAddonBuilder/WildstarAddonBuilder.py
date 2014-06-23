@@ -113,7 +113,12 @@ class WildstarAddonBuilderCommand(sublime_plugin.TextCommand):
         for file in files:
             print('Copying '+file+' to '+dest_dir)
             file = os.path.join(os.path.dirname(os.path.realpath(__file__)), file)
-            shutil.copy(file, dest_dir)
+            __name, __ext = os.path.splitext(os.path.basename(file))
+            if (__name != 'toc'):
+                dest = os.path.join(dest_dir, self.dictionary['name'].value + __ext)
+            else:
+                dest = dest_dir
+            shutil.copy(file, dest)
 
         # replace all placeholders in each file
         self.parse_files()
@@ -145,17 +150,22 @@ class WildstarAddonBuilderCommand(sublime_plugin.TextCommand):
                 project_data = {}
             project_data['folders'] = folders
         self.view.window().set_project_data(project_data)
-        self.view.window().open_file(os.path.join(dir_name, 'Addon.lua'))
+        self.view.window().open_file(os.path.join(dir_name, self.dictionary['name'].value + '.lua'))
 
     def parse_files(self):
 
         addon_dir = os.path.join(self.wildstar_path(), 'Addons', self.dictionary['name'].value)
 
+        haslist = self.dictionary['list'].value is True
+
         # Addon.xml
-        file = os.path.join(addon_dir, 'Addon.xml')
+        file = os.path.join(addon_dir, self.dictionary['name'].value + '.xml')
         tree = et.parse(file)
-        n = tree.getroot().getchildren()[0]
-        n.attrib['Name'] = self.dictionary['name'].value+'Form'
+        n = tree.getroot()
+        formnode = n.getchildren()[0]
+        formnode.attrib['Name'] = self.dictionary['name'].value+'Form'
+        if (haslist is False):
+            n.remove(n[1])
         tree.write(file, xml_declaration=True, encoding='UTF-8')
 
         # toc.xml
@@ -172,10 +182,9 @@ class WildstarAddonBuilderCommand(sublime_plugin.TextCommand):
         tree.write(file, xml_declaration=True, encoding='UTF-8')
 
         # Addon.lua
-        file = os.path.join(addon_dir, 'Addon.lua')
+        file = os.path.join(addon_dir, self.dictionary['name'].value + '.lua')
         hasinvokecmd = self.dictionary['invoke'].value is not None
         hastimer = self.dictionary['timer'].value is not False
-        haslist = self.dictionary['list'].value is True
         lines_to_remove = []
 
         with open(file, 'r+') as fh:
